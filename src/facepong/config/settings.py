@@ -48,7 +48,7 @@ class VisionConfig:
     smoothing_alpha: float = 0.35
     deadzone: float = 0.015
     neutral_ratio: float = 0.45
-    sensitivity: float = 2.8
+    sensitivity: float = 5.2
 
 
 @dataclass(frozen=True)

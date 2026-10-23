@@ -24,7 +24,7 @@ class HeadPoseEstimator:
     def __init__(
         self,
         neutral_ratio: float = 0.45,
-        sensitivity: float = 2.8,
+        sensitivity: float = 5.2,
         smoothing_alpha: float = 0.35,
         deadzone: float = 0.015,
         invert: bool = False,
@@ -71,8 +71,8 @@ class HeadPoseEstimator:
         # Compute vertical geometric pitch ratio
         raw_pitch = (keypoints.nose_y - keypoints.forehead_y) / face_height
 
-        # Combined vertical metric: blends face position in frame with facial pitch
-        current_metric = keypoints.center_y + ((raw_pitch - self.neutral_ratio) * 0.4)
+        # Combined vertical metric: blends face position in frame with amplified facial pitch
+        current_metric = keypoints.center_y + ((raw_pitch - self.neutral_ratio) * 0.6)
 
         # Baseline calibration: if recalibration requested, calibrate to current posture
         if self.neutral_y is None:

@@ -32,7 +32,7 @@ min_tracking_confidence = 0.5
 smoothing_alpha = 0.35        # EMA filter factor (0.0 = static, 1.0 = raw signal)
 deadzone = 0.015              # Threshold to prevent micro-jitter at resting pose
 neutral_ratio = 0.45          # Baseline vertical ratio (nose_y - forehead_y) / face_height
-sensitivity = 2.8             # Vertical motion scaling factor
+sensitivity = 5.2             # Vertical motion scaling factor (amplified for full arena reach)
 
 [controls]
 # Supported adapters: "face", "keyboard"
