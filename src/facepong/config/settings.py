@@ -45,10 +45,10 @@ class VisionConfig:
     refine_landmarks: bool = False
     min_detection_confidence: float = 0.5
     min_tracking_confidence: float = 0.5
-    smoothing_alpha: float = 0.28
-    deadzone: float = 0.025
+    smoothing_alpha: float = 0.35
+    deadzone: float = 0.015
     neutral_ratio: float = 0.45
-    sensitivity: float = 3.2
+    sensitivity: float = 2.8
 
 
 @dataclass(frozen=True)
@@ -71,7 +71,7 @@ class DebugConfig:
     show_hud: bool = True
     show_fps: bool = True
     show_detection_status: bool = True
-    show_camera_preview: bool = False
+    show_camera_preview: bool = True
     log_level: str = "INFO"
 
 

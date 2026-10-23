@@ -23,7 +23,7 @@ class Paddle:
             width: Paddle width in pixels.
             height: Paddle height in pixels.
             bounds_height: Total vertical arena boundary (screen height).
-            speed: Maximum velocity in pixels per second.
+            speed: Maximum velocity in pixels per second (for keyboard deltas).
         """
         self.x = float(x)
         self.width = float(width)
@@ -59,7 +59,7 @@ class Paddle:
         """
         clamped_norm = max(0.0, min(norm_y, 1.0))
         # Map [0, 1] to [min_y, max_y]
-        self.target_y = self.min_y + clamped_norm * (self.max_y - self.min_y)
+        self.target_y = self.min_y + (clamped_norm * (self.max_y - self.min_y))
 
     def move_by_delta(self, dy: float) -> None:
         """Move paddle instantly by offset (used by keyboard inputs)."""
@@ -80,13 +80,9 @@ class Paddle:
             self.y = self.target_y
             return
 
-        # Smooth kinematic approach without sudden overshoot
-        max_step = self.speed * dt
-        if abs(diff) <= max_step:
-            self.y = self.target_y
-        else:
-            direction = 1.0 if diff > 0 else -1.0
-            self.y = self._clamp(self.y + direction * max_step)
+        # Responsive exponential easing: moves fluidly without overshoot or sluggish lag
+        lerp_step = diff * min(1.0, 22.0 * dt)
+        self.y = self._clamp(self.y + lerp_step)
 
     def reset(self) -> None:
         """Reset paddle to vertical center."""

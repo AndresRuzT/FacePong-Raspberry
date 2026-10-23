@@ -9,11 +9,13 @@ from facepong.vision.smoother import EMASmoother
 
 @dataclass(frozen=True)
 class FacialKeypoints:
-    """Essential 2D normalized coordinates extracted from face mesh."""
+    """Essential 2D normalized coordinates and bounding box extracted from face detection."""
 
-    forehead_y: float  # Landmark 10
-    nose_y: float  # Landmark 4
-    chin_y: float  # Landmark 152
+    forehead_y: float  # Landmark 10 or top of bounding box
+    nose_y: float  # Landmark 4 or nose/eye estimate
+    chin_y: float  # Landmark 152 or bottom of bounding box
+    center_y: float = 0.5  # Vertical center of detected face in subframe [0.0, 1.0]
+    bbox: tuple[int, int, int, int] = (0, 0, 0, 0)  # (x, y, w, h) in subframe pixels
 
 
 class HeadPoseEstimator:
@@ -22,9 +24,9 @@ class HeadPoseEstimator:
     def __init__(
         self,
         neutral_ratio: float = 0.45,
-        sensitivity: float = 3.2,
-        smoothing_alpha: float = 0.28,
-        deadzone: float = 0.025,
+        sensitivity: float = 2.8,
+        smoothing_alpha: float = 0.35,
+        deadzone: float = 0.015,
         invert: bool = False,
     ) -> None:
         """Initialize head pose estimator.
@@ -41,6 +43,14 @@ class HeadPoseEstimator:
         self.sensitivity = float(sensitivity)
         self.invert = bool(invert)
         self.smoother = EMASmoother(alpha=smoothing_alpha, deadzone=deadzone)
+        self.neutral_y: float | None = 0.5
+        self._calibration_samples: list[float] = []
+
+    def calibrate(self) -> None:
+        """Request recalibration of the resting neutral position on next frames."""
+        self.neutral_y = None
+        self._calibration_samples.clear()
+        self.smoother.reset()
 
     def estimate_vertical_position(self, keypoints: FacialKeypoints | None) -> float | None:
         """Calculate normalized vertical position from facial landmarks.
@@ -58,15 +68,24 @@ class HeadPoseEstimator:
         if face_height <= 0.01:
             return None
 
-        # Compute vertical geometric ratio
-        raw_ratio = (keypoints.nose_y - keypoints.forehead_y) / face_height
+        # Compute vertical geometric pitch ratio
+        raw_pitch = (keypoints.nose_y - keypoints.forehead_y) / face_height
 
-        # Calculate deviation from resting neutral angle
-        deviation = raw_ratio - self.neutral_ratio
+        # Combined vertical metric: blends face position in frame with facial pitch
+        current_metric = keypoints.center_y + ((raw_pitch - self.neutral_ratio) * 0.4)
+
+        # Baseline calibration: if recalibration requested, calibrate to current posture
+        if self.neutral_y is None:
+            self._calibration_samples.append(current_metric)
+            if len(self._calibration_samples) >= 3:
+                self.neutral_y = sum(self._calibration_samples) / len(self._calibration_samples)
+            else:
+                self.neutral_y = current_metric
+
+        # Deviation relative to calibrated resting baseline
+        deviation = current_metric - self.neutral_y
 
         # Map deviation into [0.0, 1.0]: 0.5 is center screen
-        # When tilting down: nose moves towards chin -> raw_ratio increases -> target moves down
-        # When tilting up: nose moves towards forehead -> raw_ratio decreases -> target moves up
         target_pos = 0.5 + (deviation * self.sensitivity)
 
         if self.invert:
@@ -78,3 +97,5 @@ class HeadPoseEstimator:
     def reset(self) -> None:
         """Reset internal filter state."""
         self.smoother.reset()
+        self.neutral_y = 0.5
+        self._calibration_samples.clear()

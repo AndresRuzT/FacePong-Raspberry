@@ -29,10 +29,10 @@ model_complexity = 0          # 0 = Lite (Optimized TFLite for ARM NEON)
 refine_landmarks = false      # false disables heavy iris mesh, saving ~15% CPU
 min_detection_confidence = 0.5
 min_tracking_confidence = 0.5
-smoothing_alpha = 0.28        # EMA filter factor (0.0 = static, 1.0 = raw signal)
-deadzone = 0.025              # Threshold to prevent micro-jitter at resting pose
+smoothing_alpha = 0.35        # EMA filter factor (0.0 = static, 1.0 = raw signal)
+deadzone = 0.015              # Threshold to prevent micro-jitter at resting pose
 neutral_ratio = 0.45          # Baseline vertical ratio (nose_y - forehead_y) / face_height
-sensitivity = 3.2             # Vertical motion scaling factor
+sensitivity = 2.8             # Vertical motion scaling factor
 
 [controls]
 # Supported adapters: "face", "keyboard"
@@ -50,5 +50,5 @@ invert_pitch = false
 show_hud = true
 show_fps = true
 show_detection_status = true
-show_camera_preview = false
+show_camera_preview = true
 log_level = "INFO"

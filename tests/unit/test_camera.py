@@ -17,7 +17,7 @@ def test_camera_init() -> None:
 
 
 def test_camera_read_split_mocked() -> None:
-    """Verify horizontal partitioning of camera frame into left and right subframes."""
+    """Verify horizontal mirroring and partitioning of camera frame."""
     cam = CameraCapture(camera_index=0, frame_width=320, frame_height=240, fps=20)
 
     # Mock VideoCapture
@@ -30,13 +30,15 @@ def test_camera_read_split_mocked() -> None:
 
     cam._cap = mock_cap
 
-    p1_frame, p2_frame = cam.read_split_frames()
+    p1_frame, p2_frame, full_frame = cam.read_split_frames()
     assert p1_frame is not None
     assert p2_frame is not None
+    assert full_frame is not None
 
     # Each half should have width 160 and height 240
     assert p1_frame.shape == (240, 160, 3)
     assert p2_frame.shape == (240, 160, 3)
+    assert full_frame.shape == (240, 320, 3)
 
     cam.release()
     assert cam._cap is None

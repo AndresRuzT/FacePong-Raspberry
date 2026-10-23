@@ -1,4 +1,4 @@
-"""Camera capture and dual-player frame partitioning."""
+"""Camera capture, horizontal mirroring, and dual-player frame partitioning."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class CameraCapture:
-    """Wrapper around OpenCV VideoCapture with frame splitting for 2 players."""
+    """Wrapper around OpenCV VideoCapture with horizontal mirroring and frame splitting."""
 
     def __init__(
         self,
@@ -61,30 +61,34 @@ class CameraCapture:
 
     def read_split_frames(
         self,
-    ) -> tuple[np.ndarray[Any, Any] | None, np.ndarray[Any, Any] | None]:
-        """Capture one frame and partition horizontally for Player 1 and Player 2.
+    ) -> tuple[
+        np.ndarray[Any, Any] | None, np.ndarray[Any, Any] | None, np.ndarray[Any, Any] | None
+    ]:
+        """Capture one frame, mirror horizontally, and partition for Player 1 and Player 2.
 
         Returns:
-            Tuple of (left_rgb_frame, right_rgb_frame) or (None, None) on failure.
+            Tuple of (left_rgb_frame, right_rgb_frame, full_mirrored_rgb) or (None, None, None).
         """
         if self._cap is None or not self._cap.isOpened():
-            return None, None
+            return None, None, None
 
         ret, frame = self._cap.read()
         if not ret or frame is None:
-            return None, None
+            return None, None, None
 
-        # Convert to RGB (MediaPipe requirement)
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Mirror horizontally so Player 1 (physically on left) is on left of screen
+        mirrored = cv2.flip(frame, 1)
+
+        # Convert to RGB (MediaPipe and Pygame requirement)
+        rgb = cv2.cvtColor(mirrored, cv2.COLOR_BGR2RGB)
         _, width, _ = rgb.shape
         mid = width // 2
 
         # Left half = Player 1, Right half = Player 2
-        # As Player 1 sits on the left side of the screen/camera
         left_subframe = np.ascontiguousarray(rgb[:, :mid])
         right_subframe = np.ascontiguousarray(rgb[:, mid:])
 
-        return left_subframe, right_subframe
+        return left_subframe, right_subframe, rgb
 
     def release(self) -> None:
         """Release camera resource."""

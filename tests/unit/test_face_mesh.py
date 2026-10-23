@@ -20,7 +20,7 @@ def test_face_mesh_mediapipe_flow() -> None:
     detector = FaceMeshDetector()
 
     mock_mp = MagicMock()
-    mock_landmark = [MagicMock(y=0.1 * i) for i in range(468)]
+    mock_landmark = [MagicMock(x=0.1, y=0.1 * i) for i in range(468)]
     mock_result = MagicMock()
     mock_result.multi_face_landmarks = [MagicMock(landmark=mock_landmark)]
     mock_mp.process.return_value = mock_result
@@ -47,7 +47,6 @@ def test_face_mesh_opencv_fallback() -> None:
     mock_cascade.empty.return_value = False
 
     detector._cv_cascade = mock_cascade
-    detector._eye_cascade = None
 
     dummy_frame = np.zeros((200, 200, 3), dtype=np.uint8)
     keypoints = detector.process_frame(dummy_frame)

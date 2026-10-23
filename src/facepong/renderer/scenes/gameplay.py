@@ -1,4 +1,4 @@
-"""Gameplay rendering scene including paddles, ball, and overlay states."""
+"""Gameplay rendering scene including paddles, ball, camera preview, and overlay states."""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ from facepong.renderer.hud import HUD
 COLOR_PADDLE_P1 = (90, 200, 250)  # Clean Cyan
 COLOR_PADDLE_P2 = (255, 149, 0)  # Vibrant Amber / Orange
 COLOR_BALL = (255, 255, 255)  # Pure White
-COLOR_OVERLAY = (0, 0, 0, 180)  # Semi-transparent dark overlay
 COLOR_VICTORY = (255, 214, 10)  # Gold
 COLOR_TEXT = (255, 255, 255)
+COLOR_CAM_BORDER = (50, 65, 85)
 
 
 class GameplayRenderer:
-    """Renders active match elements: paddles, ball, and status overlays."""
+    """Renders active match elements: paddles, ball, camera PiP, and status overlays."""
 
     def __init__(self, width: int, height: int, debug_config: DebugConfig) -> None:
         """Initialize gameplay renderer.
@@ -45,6 +45,8 @@ class GameplayRenderer:
         p2_type: str,
         game_fps: float,
         cv_fps: float,
+        preview_surface: pygame.Surface | None = None,
+        show_preview: bool = True,
     ) -> None:
         """Render complete frame for active gameplay.
 
@@ -57,6 +59,8 @@ class GameplayRenderer:
             p2_type: Type name of Player 2 adapter.
             game_fps: Current game loop framerate.
             cv_fps: Current vision processing framerate.
+            preview_surface: Optional Pygame Surface with camera frame and annotations.
+            show_preview: Whether picture-in-picture camera view is visible.
         """
         # 1. Court net and background field
         self.hud.draw_net(surface)
@@ -94,11 +98,21 @@ class GameplayRenderer:
             int(game.ball.radius),
         )
 
-        # 7. Pause Overlay
+        # 7. Live Camera Picture-in-Picture (PiP) at bottom-center
+        if show_preview and preview_surface is not None:
+            pw, ph = preview_surface.get_size()
+            pip_x = self.width // 2 - pw // 2
+            pip_y = self.height - ph - 30
+            # Border frame
+            pip_border = pygame.Rect(pip_x - 2, pip_y - 2, pw + 4, ph + 4)
+            pygame.draw.rect(surface, COLOR_CAM_BORDER, pip_border, width=2, border_radius=4)
+            surface.blit(preview_surface, (pip_x, pip_y))
+
+        # 8. Pause Overlay
         if game.state == GameState.PAUSED:
             self._draw_pause_overlay(surface)
 
-        # 8. Game Over Overlay
+        # 9. Game Over Overlay
         elif game.state == GameState.GAME_OVER:
             self._draw_game_over_overlay(surface, game.score.winner)
 

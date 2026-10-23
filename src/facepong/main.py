@@ -110,6 +110,7 @@ def main() -> int:
     # Start CV worker process if any player is using face control
     vision_process: mp.Process | None = None
     stop_event = mp.Event()
+    recalibrate_event = mp.Event()
     vision_queue: mp.Queue[VisionOutput] = mp.Queue(maxsize=1)
 
     needs_cv = (p1_type == "face") or (p2_type == "face")
@@ -117,7 +118,7 @@ def main() -> int:
         logger.info("Starting computer vision background worker process...")
         vision_process = mp.Process(
             target=cv_worker_process,
-            args=(vision_queue, stop_event, config.vision),
+            args=(vision_queue, stop_event, config.vision, recalibrate_event),
             daemon=True,
         )
         vision_process.start()
@@ -129,6 +130,8 @@ def main() -> int:
     clock = pygame.time.Clock()
     running = True
     cv_fps = 0.0
+    show_preview = config.debug.show_camera_preview
+    current_preview_surface: pygame.Surface | None = None
 
     try:
         while running:
@@ -147,13 +150,25 @@ def main() -> int:
 
                     if event.key == pygame.K_SPACE:
                         if game.state == GameState.MENU:
+                            recalibrate_event.set()
                             game.start_match()
                         elif game.state in (GameState.PLAYING, GameState.PAUSED):
                             game.toggle_pause()
                         elif game.state == GameState.GAME_OVER:
+                            recalibrate_event.set()
                             game.start_match()
 
+                    elif event.key == pygame.K_c:
+                        # Instant recalibration of resting neutral position
+                        recalibrate_event.set()
+                        logger.info("Player recalibration triggered via key [C].")
+
+                    elif event.key == pygame.K_v:
+                        # Toggle camera PiP preview visibility
+                        show_preview = not show_preview
+
                     elif event.key == pygame.K_r:
+                        recalibrate_event.set()
                         game.reset_match()
 
                 # Dispatch keyboard strokes to adapters if active
@@ -179,6 +194,11 @@ def main() -> int:
                     if isinstance(adapter_p2, FaceInputAdapter):
                         adapter_p2.update_from_vision(latest_cv.p2_pos, latest_cv.p2_detected)
 
+                    if latest_cv.preview_frame is not None:
+                        current_preview_surface = pygame.image.frombuffer(
+                            latest_cv.preview_frame, latest_cv.preview_size, "RGB"
+                        )
+
             # 3. Update Paddle Kinematics from Input Adapters
             p1_norm = adapter_p1.get_normalized_position()
             if p1_norm is not None:
@@ -199,7 +219,7 @@ def main() -> int:
             screen_mgr.clear()
 
             if game.state == GameState.MENU:
-                menu_renderer.draw(surface)
+                menu_renderer.draw(surface, preview_surface=current_preview_surface)
             else:
                 gameplay_renderer.draw(
                     surface=surface,
@@ -210,6 +230,8 @@ def main() -> int:
                     p2_type=p2_type,
                     game_fps=clock.get_fps(),
                     cv_fps=cv_fps,
+                    preview_surface=current_preview_surface,
+                    show_preview=show_preview,
                 )
 
             screen_mgr.flip()
