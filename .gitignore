@@ -68,3 +68,4 @@ logs/
 # Game / Runtime Assets & Cache
 assets/cache/
 *.pyc
+*.raw
