@@ -80,8 +80,8 @@ class Paddle:
             self.y = self.target_y
             return
 
-        # Responsive exponential easing: moves fluidly without overshoot or sluggish lag
-        lerp_step = diff * min(1.0, 22.0 * dt)
+        # Ultra-responsive kinematic lerp: snaps to target immediately without sluggish delay
+        lerp_step = diff * min(1.0, 48.0 * dt)
         self.y = self._clamp(self.y + lerp_step)
 
     def reset(self) -> None:

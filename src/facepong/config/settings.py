@@ -45,10 +45,10 @@ class VisionConfig:
     refine_landmarks: bool = False
     min_detection_confidence: float = 0.5
     min_tracking_confidence: float = 0.5
-    smoothing_alpha: float = 0.35
-    deadzone: float = 0.015
+    smoothing_alpha: float = 0.32
+    deadzone: float = 0.008
     neutral_ratio: float = 0.45
-    sensitivity: float = 5.2
+    sensitivity: float = 5.5
 
 
 @dataclass(frozen=True)
