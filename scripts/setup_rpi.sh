@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # FacePong — Raspberry Pi 4 Automated Setup Script
-# Designed for Raspberry Pi OS (Bookworm) 64-bit (aarch64)
+# Compatible with Debian 12 (Bookworm) and Debian 13 (Trixie) 64-bit (aarch64)
 # ==============================================================================
 
 set -euo pipefail
@@ -13,48 +13,48 @@ echo "=========================================================="
 # Check architecture
 ARCH=$(uname -m)
 if [ "$ARCH" != "aarch64" ]; then
-    echo "⚠️ Warning: Detected architecture '$ARCH'. FacePong is optimized for aarch64 (64-bit)."
+    echo "[!] Warning: Detected architecture '$ARCH'. FacePong is optimized for aarch64 (64-bit)."
     echo "Continuing setup..."
 fi
 
 # 1. Update and install system dependencies
-echo "📦 Step 1: Installing essential system dependencies via apt..."
+# Uses modern libgl1 and libegl1 packages (compatible with both Bookworm and Trixie)
+echo "[*] Step 1: Installing essential system dependencies via apt..."
 sudo apt update
 sudo apt install -y \
     python3-pip \
     python3-venv \
     python3-dev \
-    libgl1-mesa-glx \
-    libegl1-mesa \
-    libglib2.0-0 \
+    libgl1 \
+    libegl1 \
     libsm6 \
     libxext6 \
     libxrender-dev \
     v4l-utils
 
 # 2. Add current user to video group for camera device access
-echo "📹 Step 2: Ensuring user '$(whoami)' has permission to access /dev/video*..."
+echo "[*] Step 2: Ensuring user '$(whoami)' has permission to access /dev/video*..."
 sudo usermod -aG video "$(whoami)" || true
 
 # 3. Create virtual environment
-echo "🐍 Step 3: Creating Python 3.11 virtual environment (.venv)..."
+echo "[*] Step 3: Creating Python virtual environment (.venv)..."
 if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
 # 4. Activate and upgrade pip
-echo "🚀 Step 4: Upgrading pip and installing wheels inside virtual environment..."
+echo "[*] Step 4: Upgrading pip and installing wheels inside virtual environment..."
 source .venv/bin/activate
 pip install --upgrade pip setuptools wheel
 
 # 5. Install FacePong and runtime dependencies
-echo "🎮 Step 5: Installing FacePong dependencies..."
+echo "[*] Step 5: Installing FacePong dependencies..."
 pip install -r requirements.txt
 pip install -e .
 
 echo ""
 echo "=========================================================="
-echo "✅ Installation completed successfully!"
+echo "[+] Installation completed successfully!"
 echo "=========================================================="
 echo "To run the game:"
 echo "  1. source .venv/bin/activate"
