@@ -1,4 +1,4 @@
-"""Gameplay rendering scene including paddles, ball, camera preview, and overlay states."""
+"""Gameplay rendering scene with exterior dashboard, framed court, and clean HUD."""
 
 from __future__ import annotations
 
@@ -8,17 +8,15 @@ from facepong.config.settings import DebugConfig
 from facepong.core.game import Game, GameState
 from facepong.renderer.hud import HUD
 
-# Aesthetic Colors
-COLOR_PADDLE_P1 = (90, 200, 250)  # Clean Cyan
-COLOR_PADDLE_P2 = (255, 149, 0)  # Vibrant Amber / Orange
+COLOR_PADDLE_P1 = (0, 220, 255)  # Cyan
+COLOR_PADDLE_P2 = (255, 150, 20)  # Amber
 COLOR_BALL = (255, 255, 255)  # Pure White
-COLOR_VICTORY = (255, 214, 10)  # Gold
+COLOR_VICTORY = (255, 215, 0)  # Gold
 COLOR_TEXT = (255, 255, 255)
-COLOR_CAM_BORDER = (50, 65, 85)
 
 
 class GameplayRenderer:
-    """Renders active match elements: paddles, ball, camera PiP, and status overlays."""
+    """Renders active match elements: exterior dashboard, framed arena, and overlays."""
 
     def __init__(self, width: int, height: int, debug_config: DebugConfig) -> None:
         """Initialize gameplay renderer.
@@ -32,8 +30,8 @@ class GameplayRenderer:
         self.height = height
         self.hud = HUD(width, height, debug_config)
 
-        self.font_overlay = pygame.font.SysFont("dejavusans,freesansbold,arial", 56, bold=True)
-        self.font_sub = pygame.font.SysFont("dejavusans,arial", 24)
+        self.font_overlay = pygame.font.SysFont("dejavusans,freesansbold,arial", 52, bold=True)
+        self.font_sub = pygame.font.SysFont("dejavusans,arial", 22)
 
     def draw(
         self,
@@ -59,20 +57,33 @@ class GameplayRenderer:
             p2_type: Type name of Player 2 adapter.
             game_fps: Current game loop framerate.
             cv_fps: Current vision processing framerate.
-            preview_surface: Optional Pygame Surface with camera frame and annotations.
-            show_preview: Whether picture-in-picture camera view is visible.
+            preview_surface: Pygame Surface with live camera frame and face tracking.
+            show_preview: Unused compatibility flag.
         """
-        # 1. Court net and background field
-        self.hud.draw_net(surface)
+        # 1. Top exterior dashboard frame (houses Branding, Telemetry, and Live Camera)
+        self.hud.draw_top_dashboard(
+            surface=surface,
+            p1_detected=p1_detected,
+            p2_detected=p2_detected,
+            p1_type=p1_type,
+            p2_type=p2_type,
+            game_fps=game_fps,
+            cv_fps=cv_fps,
+            preview_surface=preview_surface,
+        )
 
-        # 2. Scoreboard
-        self.hud.draw_scores(surface, game.score.p1_score, game.score.p2_score)
+        # 2. Dedicated playing court arena (unobstructed field of play)
+        self.hud.draw_court(
+            surface=surface,
+            arena_x=game.arena_x,
+            arena_y=game.arena_y,
+            arena_w=game.arena_w,
+            arena_h=game.arena_h,
+            p1_score=game.score.p1_score,
+            p2_score=game.score.p2_score,
+        )
 
-        # 3. Tracking and diagnostics
-        self.hud.draw_player_status(surface, p1_detected, p2_detected, p1_type, p2_type)
-        self.hud.draw_telemetry(surface, game_fps, cv_fps)
-
-        # 4. Paddle 1 (Left)
+        # 3. Paddle 1 (Left - Cyan)
         p1_rect = pygame.Rect(
             int(game.paddle1.x),
             int(game.paddle1.y),
@@ -81,7 +92,7 @@ class GameplayRenderer:
         )
         pygame.draw.rect(surface, COLOR_PADDLE_P1, p1_rect, border_radius=6)
 
-        # 5. Paddle 2 (Right)
+        # 4. Paddle 2 (Right - Amber)
         p2_rect = pygame.Rect(
             int(game.paddle2.x),
             int(game.paddle2.y),
@@ -90,7 +101,7 @@ class GameplayRenderer:
         )
         pygame.draw.rect(surface, COLOR_PADDLE_P2, p2_rect, border_radius=6)
 
-        # 6. Central Ball
+        # 5. Central Ball
         pygame.draw.circle(
             surface,
             COLOR_BALL,
@@ -98,37 +109,30 @@ class GameplayRenderer:
             int(game.ball.radius),
         )
 
-        # 7. Live Camera Picture-in-Picture (PiP) at bottom-center
-        if show_preview and preview_surface is not None:
-            pw, ph = preview_surface.get_size()
-            pip_x = self.width // 2 - pw // 2
-            pip_y = self.height - ph - 30
-            # Border frame
-            pip_border = pygame.Rect(pip_x - 2, pip_y - 2, pw + 4, ph + 4)
-            pygame.draw.rect(surface, COLOR_CAM_BORDER, pip_border, width=2, border_radius=4)
-            surface.blit(preview_surface, (pip_x, pip_y))
+        # 6. Bottom Command Shortcuts Bar
+        self.hud.draw_footer_help(surface)
 
-        # 8. Pause Overlay
+        # 7. Pause Overlay
         if game.state == GameState.PAUSED:
             self._draw_pause_overlay(surface)
 
-        # 9. Game Over Overlay
+        # 8. Game Over Overlay
         elif game.state == GameState.GAME_OVER:
             self._draw_game_over_overlay(surface, game.score.winner)
 
     def _draw_pause_overlay(self, surface: pygame.Surface) -> None:
         """Render pause dialog overlay."""
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((10, 12, 18, 175))
+        overlay.fill((10, 14, 22, 185))
         surface.blit(overlay, (0, 0))
 
-        text_surf = self.font_overlay.render("PAUSED", True, COLOR_TEXT)
+        text_surf = self.font_overlay.render("PAUSA", True, COLOR_TEXT)
         surface.blit(
             text_surf,
-            (self.width // 2 - text_surf.get_width() // 2, self.height // 2 - 50),
+            (self.width // 2 - text_surf.get_width() // 2, self.height // 2 - 40),
         )
 
-        sub_surf = self.font_sub.render("PRESS [SPACE] TO RESUME", True, COLOR_PADDLE_P1)
+        sub_surf = self.font_sub.render("PRESIONEN [ESPACIO] PARA CONTINUAR", True, COLOR_PADDLE_P1)
         surface.blit(
             sub_surf,
             (self.width // 2 - sub_surf.get_width() // 2, self.height // 2 + 25),
@@ -137,17 +141,18 @@ class GameplayRenderer:
     def _draw_game_over_overlay(self, surface: pygame.Surface, winner: int | None) -> None:
         """Render match victory celebration overlay."""
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((10, 12, 18, 205))
+        overlay.fill((10, 14, 22, 210))
         surface.blit(overlay, (0, 0))
 
-        winner_str = f"PLAYER {winner} WINS!" if winner else "GAME OVER"
-        text_surf = self.font_overlay.render(winner_str, True, COLOR_VICTORY)
+        winner_str = f"VICTORIA: JUGADOR {winner}" if winner else "FIN DE PARTIDA"
+        winner_color = COLOR_PADDLE_P1 if winner == 1 else COLOR_PADDLE_P2
+        text_surf = self.font_overlay.render(winner_str, True, winner_color)
         surface.blit(
             text_surf,
-            (self.width // 2 - text_surf.get_width() // 2, self.height // 2 - 60),
+            (self.width // 2 - text_surf.get_width() // 2, self.height // 2 - 50),
         )
 
-        sub_surf = self.font_sub.render("PRESS [SPACE] FOR REMATCH", True, COLOR_TEXT)
+        sub_surf = self.font_sub.render("PRESIONEN [ESPACIO] PARA REVANCHA", True, COLOR_TEXT)
         surface.blit(
             sub_surf,
             (self.width // 2 - sub_surf.get_width() // 2, self.height // 2 + 30),

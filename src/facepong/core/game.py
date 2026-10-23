@@ -20,7 +20,7 @@ class GameState(Enum):
 
 
 class Game:
-    """Core game coordinator managing paddles, ball physics, score, and state."""
+    """Core game coordinator managing paddles, ball physics, score, and arena geometry."""
 
     def __init__(self, config: AppConfig) -> None:
         """Initialize game world according to application configuration.
@@ -31,8 +31,12 @@ class Game:
         self.config = config
         self.state = GameState.MENU
 
-        screen_w = float(config.display.width)
-        screen_h = float(config.display.height)
+        # Dedicated Court Arena dimensions (framed below header dashboard)
+        self.arena_x = 24.0
+        self.arena_y = 148.0
+        self.arena_w = float(config.display.width) - 48.0  # 1232 px
+        self.arena_h = float(config.display.height) - 176.0  # 544 px
+
         pad_w = float(config.game.paddle_width)
         pad_h = float(config.game.paddle_height)
         pad_margin = float(config.game.paddle_margin_x)
@@ -40,32 +44,36 @@ class Game:
 
         # Player 1 (Left paddle)
         self.paddle1 = Paddle(
-            x=pad_margin,
-            initial_y=(screen_h - pad_h) / 2.0,
+            x=self.arena_x + pad_margin,
+            initial_y=self.arena_y + ((self.arena_h - pad_h) / 2.0),
             width=pad_w,
             height=pad_h,
-            bounds_height=screen_h,
+            bounds_height=self.arena_h,
             speed=pad_speed,
+            bounds_top=self.arena_y,
         )
 
         # Player 2 (Right paddle)
         self.paddle2 = Paddle(
-            x=screen_w - pad_margin - pad_w,
-            initial_y=(screen_h - pad_h) / 2.0,
+            x=self.arena_x + self.arena_w - pad_margin - pad_w,
+            initial_y=self.arena_y + ((self.arena_h - pad_h) / 2.0),
             width=pad_w,
             height=pad_h,
-            bounds_height=screen_h,
+            bounds_height=self.arena_h,
             speed=pad_speed,
+            bounds_top=self.arena_y,
         )
 
         # Central Ball
         self.ball = Ball(
-            bounds_width=screen_w,
-            bounds_height=screen_h,
+            bounds_width=self.arena_w,
+            bounds_height=self.arena_h,
             radius=float(config.game.ball_radius),
             initial_speed=float(config.game.ball_initial_speed),
             max_speed=float(config.game.ball_max_speed),
             speed_increment=float(config.game.speed_increment),
+            bounds_x=self.arena_x,
+            bounds_y=self.arena_y,
         )
 
         # Score Tracker
@@ -115,7 +123,6 @@ class Game:
             if game_over:
                 self.state = GameState.GAME_OVER
             else:
-                # Launch ball towards the player who just scored
                 launch_dir = 1 if scoring_player == 1 else -1
                 self.ball.reset(direction=launch_dir)
             return

@@ -14,6 +14,7 @@ class Paddle:
         height: float,
         bounds_height: float,
         speed: float = 700.0,
+        bounds_top: float = 0.0,
     ) -> None:
         """Initialize paddle dimensions, position and movement bounds.
 
@@ -22,17 +23,19 @@ class Paddle:
             initial_y: Initial top-left Y coordinate.
             width: Paddle width in pixels.
             height: Paddle height in pixels.
-            bounds_height: Total vertical arena boundary (screen height).
+            bounds_height: Total vertical arena boundary height.
             speed: Maximum velocity in pixels per second (for keyboard deltas).
+            bounds_top: Top vertical boundary offset of the arena.
         """
         self.x = float(x)
         self.width = float(width)
         self.height = float(height)
+        self.bounds_top = float(bounds_top)
         self.bounds_height = float(bounds_height)
         self.speed = float(speed)
 
-        self.min_y = 0.0
-        self.max_y = max(0.0, self.bounds_height - self.height)
+        self.min_y = self.bounds_top
+        self.max_y = max(self.min_y, self.bounds_top + self.bounds_height - self.height)
 
         self.y = self._clamp(float(initial_y))
         self.target_y: float | None = None
@@ -55,7 +58,7 @@ class Paddle:
         """Set target paddle position based on normalized coordinate [0.0, 1.0].
 
         Args:
-            norm_y: 0.0 represents top of screen, 1.0 represents bottom.
+            norm_y: 0.0 represents top of arena, 1.0 represents bottom.
         """
         clamped_norm = max(0.0, min(norm_y, 1.0))
         # Map [0, 1] to [min_y, max_y]
@@ -80,11 +83,11 @@ class Paddle:
             self.y = self.target_y
             return
 
-        # Ultra-responsive kinematic lerp: snaps to target immediately without sluggish delay
-        lerp_step = diff * min(1.0, 48.0 * dt)
+        # Continuous organic 60 FPS lerp: perfectly smooth gliding without jumps or lag
+        lerp_step = diff * min(1.0, 25.0 * dt)
         self.y = self._clamp(self.y + lerp_step)
 
     def reset(self) -> None:
-        """Reset paddle to vertical center."""
-        self.y = self._clamp((self.bounds_height - self.height) / 2.0)
+        """Reset paddle to vertical center of arena."""
+        self.y = self._clamp(self.bounds_top + ((self.bounds_height - self.height) / 2.0))
         self.target_y = None
