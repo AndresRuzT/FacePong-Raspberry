@@ -1,0 +1,54 @@
+# FacePong Configuration File
+# Optimized for Raspberry Pi 4 (Quad-Core Cortex-A72 @ 1.8GHz, aarch64)
+
+[display]
+width = 1280
+height = 720
+fullscreen = false
+fps_target = 60
+title = "FacePong — Vision Controlled Pong"
+
+[game]
+winning_score = 5
+paddle_width = 18
+paddle_height = 120
+paddle_speed = 700.0          # Max pixels per second for keyboard/smooth transitions
+paddle_margin_x = 40          # Distance from screen edge
+ball_radius = 10
+ball_initial_speed = 420.0
+ball_max_speed = 880.0
+speed_increment = 1.06        # 6% speed increase per paddle bounce
+
+[vision]
+camera_index = 0
+frame_width = 320             # Downscaled capture to keep CPU load below 40% on Core 2-3
+frame_height = 240
+fps = 20
+split_mode = "horizontal"     # Left half = Player 1, Right half = Player 2
+model_complexity = 0          # 0 = Lite (Optimized TFLite for ARM NEON)
+refine_landmarks = false      # false disables heavy iris mesh, saving ~15% CPU
+min_detection_confidence = 0.5
+min_tracking_confidence = 0.5
+smoothing_alpha = 0.28        # EMA filter factor (0.0 = static, 1.0 = raw signal)
+deadzone = 0.025              # Threshold to prevent micro-jitter at resting pose
+neutral_ratio = 0.45          # Baseline vertical ratio (nose_y - forehead_y) / face_height
+sensitivity = 3.2             # Vertical motion scaling factor
+
+[controls]
+# Supported adapters: "face", "keyboard"
+player1_input = "face"
+player2_input = "face"
+
+# Fallback / Debug keyboard mapping
+p1_key_up = "w"
+p1_key_down = "s"
+p2_key_up = "up"
+p2_key_down = "down"
+invert_pitch = false
+
+[debug]
+show_hud = true
+show_fps = true
+show_detection_status = true
+show_camera_preview = false
+log_level = "INFO"
