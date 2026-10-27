@@ -64,6 +64,7 @@ dmypy.json
 # Logs & Runtime
 *.log
 logs/
+target/
 
 # Game / Runtime Assets & Cache
 assets/cache/

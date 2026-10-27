@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# FacePong — Raspberry Pi 4 Automated Setup Script
+# FacePong — Raspberry Pi 4 Automated Setup Script (Rust Engine)
 # Compatible with Debian 12 (Bookworm) and Debian 13 (Trixie) 64-bit (aarch64)
 # ==============================================================================
 
@@ -8,58 +8,61 @@ set -euo pipefail
 
 echo "=========================================================="
 echo "   FacePong: Automated Setup for Raspberry Pi 4 (ARM64)   "
+echo "   High-Performance Native Rust Engine (Macroquad + V4L2) "
 echo "=========================================================="
 
-# Check architecture
 ARCH=$(uname -m)
 if [ "$ARCH" != "aarch64" ]; then
-    echo "[!] Warning: Detected architecture '$ARCH'. FacePong is optimized for aarch64 (64-bit)."
+    echo "[!] Note: Detected architecture '$ARCH'. FacePong is optimized for aarch64 (64-bit)."
     echo "Continuing setup..."
 fi
 
-# 1. Update and install system dependencies
-# Uses modern libgl1 and libegl1 packages (compatible with both Bookworm and Trixie)
+# 1. Install system build dependencies and runtime libraries
 echo "[*] Step 1: Installing essential system dependencies via apt..."
 sudo apt update
 sudo apt install -y \
-    python3-pip \
-    python3-venv \
-    python3-dev \
+    curl \
+    build-essential \
+    pkg-config \
     libgl1 \
     libegl1 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
+    libasound2-dev \
+    libv4l-dev \
+    libx11-dev \
+    libxi-dev \
     v4l-utils
 
 # 2. Add current user to video group for camera device access
 echo "[*] Step 2: Ensuring user '$(whoami)' has permission to access /dev/video*..."
 sudo usermod -aG video "$(whoami)" || true
 
-# 3. Create virtual environment
-echo "[*] Step 3: Creating Python virtual environment (.venv)..."
-if [ ! -d ".venv" ]; then
-    python3 -m venv .venv
+# 3. Install Rust toolchain if not installed
+echo "[*] Step 3: Checking Rust toolchain..."
+if ! command -v cargo &> /dev/null; then
+    echo "[*] Rust not found. Installing stable Rust via rustup..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+else
+    echo "[+] Rust toolchain is already installed ($(cargo --version))."
 fi
 
-# 4. Activate and upgrade pip
-echo "[*] Step 4: Upgrading pip and installing wheels inside virtual environment..."
-source .venv/bin/activate
-pip install --upgrade pip setuptools wheel
-
-# 5. Install FacePong and runtime dependencies
-echo "[*] Step 5: Installing FacePong dependencies..."
-pip install -r requirements.txt
-pip install -e .
+# 4. Build high-performance release binary
+echo "[*] Step 4: Compiling FacePong in release mode with NEON SIMD and LTO..."
+source "$HOME/.cargo/env" || true
+cargo build --release
 
 echo ""
 echo "=========================================================="
-echo "[+] Installation completed successfully!"
+echo "[+] Build and setup completed successfully!"
 echo "=========================================================="
-echo "To run the game:"
-echo "  1. source .venv/bin/activate"
-echo "  2. python3 -m facepong.main"
+echo "To run FacePong:"
+echo "  ./target/release/facepong"
 echo ""
-echo "To test with keyboard controls (no camera needed):"
-echo "  python3 -m facepong.main --keyboard"
+echo "Controls:"
+echo "  [ESPACIO] Iniciar Partida / Pausar / Continuar"
+echo "  [C]       Recalibrar Centro Facial"
+echo "  [R]       Reiniciar Marcador"
+echo "  [W / S]   Control manual Paleta Izquierda (P1)"
+echo "  [Arriba / Abajo] Control manual Paleta Derecha (P2)"
+echo "  [ESC]     Salir"
 echo "=========================================================="

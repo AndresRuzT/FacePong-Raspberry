@@ -1,0 +1,29 @@
+[package]
+name = "facepong"
+version = "0.2.0"
+edition = "2021"
+authors = ["Andres Ruz <andresruztp@outlook.com>"]
+description = "High-performance vision-controlled Pong in Rust for Raspberry Pi 4"
+license = "MIT"
+keywords = ["pong", "computer-vision", "raspberry-pi", "macroquad", "hci"]
+
+[dependencies]
+macroquad = "0.4.13"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+crossbeam-channel = "0.5"
+image = { version = "0.24", default-features = false, features = ["jpeg"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+v4l = { version = "0.14", optional = true }
+
+[features]
+default = ["v4l2"]
+v4l2 = ["dep:v4l"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

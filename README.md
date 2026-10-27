@@ -1,89 +1,74 @@
 # FacePong — Raspberry Pi 4 Computer Vision Pong
 
 [![CI Pipeline](https://github.com/AndresRuzT/FacePong-Raspberry/actions/workflows/ci.yml/badge.svg)](https://github.com/AndresRuzT/FacePong-Raspberry/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Type Checked: Mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
 
-**FacePong** es un sistema interactivo multijugador en tiempo real que traslada el clásico juego arcade Pong a una interfaz humano-computador (HCI) basada en **visión artificial y estimación de pose cefálica**.
+FacePong es un sistema interactivo multijugador en tiempo real que traslada el clásico juego arcade Pong a una interfaz humano-computador (HCI) basada en visión artificial y estimación de movimiento cefálico.
 
-Diseñado y optimizado específicamente para hardware embebido **Raspberry Pi 4 Model B (Quad-Core ARM Cortex-A72 @ 1.8GHz, aarch64)** para entornos de investigación y demostración académica.
+Diseñado y optimizado específicamente para hardware embebido Raspberry Pi 4 Model B (Quad-Core ARM Cortex-A72 @ 1.8GHz, aarch64) para entornos de investigación y demostración académica.
 
 ---
 
-## 🎯 Características Principales
+## Caracteristicas Principales
 
-- **Control Contactless (Sin Mandos):** El desplazamiento vertical de la pala responde al movimiento de cabeza/mirada de cada participante.
-- **Multijugador en Cámara Única:** Algoritmo de partición de cuadro horizontal (*frame splitting*) que procesa simultáneamente a los dos jugadores desde una sola cámara USB de bajo coste.
-- **Arquitectura Multinúcleo Concurrente:** La inferencia de visión se desacopla del motor gráfico mediante procesos independientes (`multiprocessing`), garantizando **60 FPS estables** en el bucle de juego sin bloqueos por el Global Interpreter Lock (GIL).
-- **Procesamiento de Señal Robusto:** Filtro EMA (*Exponential Moving Average*) y umbral de zona muerta (*deadzone*) para eliminar vibraciones musculares y fluctuaciones de iluminación.
-- **Modo Fallback / Calibración:** Compatibilidad nativa con teclado para pruebas sin cámara o depuración en estaciones de desarrollo.
-- **Estándar de Calidad:** Código 100% tipado estáticamente, verificado con `mypy` y formateado con `ruff`.
+- Motor Nativo en Rust: Reimplementado completamente en Rust con Macroquad (aceleracion GLES 2.0 por hardware) y streaming V4L2 zero-copy desde el kernel Linux.
+- Control Contactless (Sin Mandos): El desplazamiento vertical de la pala responde al cabeceo e inclinacion facial de cada participante.
+- Multijugador en Camara Unica: Particion horizontal automatica con espejo que procesa a ambos jugadores simultaneamente en un unico sensor USB.
+- Segmentacion de Color y Centroide Sub-milisegundo: Deteccion crominante de piel en espacio YCbCr optimizada en punto fijo que se ejecuta a mas de 100 FPS en CPUs ARM Cortex-A72.
+- Compensacion Biomecanica: Multiplicador diferencial para la inclinacion superior (1.65x) que compensa la restriccion anatomica del cuello humano y el escorzo perspectivo 2D, permitiendo alcanzar los extremos superior e inferior con minimo esfuerzo.
+- Filtro EMA Adaptativo: Suavizado exponencial dinamico con incremento de alfa segun velocidad de movimiento para eliminar temblores en reposo y respuesta inmediata en gestos rapidos.
+- Diseno Framed Dashboard: Panel superior exterior desacoplado del campo de juego que aloja visualizador en vivo, telemetria y estado de conexion sin obstruir la cancha.
+- Modo Fallback / Teclado: Deteccion automatica y soporte de control por teclado para entornos sin camara o depuracion.
 
 ---
 
-## 🏗️ Arquitectura del Sistema
+## Arquitectura del Motor Rust
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│                   MAIN PROCESS (Cores 0-1)                     │
-│               Pygame-CE Loop @ 60 FPS Constantes               │
-│                                                                │
-│  [Event Handler] ──> [Game State] ──> [Ball Physics / Col]     │
-│                             │                                  │
-│                             ▼                                  │
-│                    [Input Manager Layer]                       │
-│                    (P1 Adapter / P2 Adapter)                   │
-└──────────────────────────────▲─────────────────────────────────┘
-                               │ Non-blocking IPC Queue (Freshest frame)
-┌──────────────────────────────┴─────────────────────────────────┐
-│                    CV WORKER PROCESS (Cores 2-3)               │
-│               OpenCV + MediaPipe Face Mesh (Lite)              │
-│                                                                │
-│  1. Captura USB (320x240 @ 20 FPS)                             │
-│  2. Partición Horizontal:                                      │
-│       • Subframe Izquierdo ──> Jugador 1 (Landmarks 4, 10, 152)│
-│       • Subframe Derecho   ──> Jugador 2 (Landmarks 4, 10, 152)│
-│  3. Extracción de ratios normalizados de cabeceo vertical       │
-│  4. Publicación no-bloqueante a Queue                          │
-└────────────────────────────────────────────────────────────────┘
++----------------------------------------------------------------+
+|                   MAIN THREAD (Macroquad GLES)                |
+|                    60+ FPS Hardware Rendering                  |
+|                                                                |
+|  [Input & Keyboard] --> [Game State] --> [Continuous Lerp]     |
+|                              |                                 |
+|                              v                                 |
+|                     [Framed Scene Renderer]                    |
+|             (Dashboard Bezel + Unobstructed Court)             |
++------------------------------^---------------------------------+
+                               | Zero-latency Crossbeam Channel
++------------------------------+---------------------------------+
+|                 VISION WORKER THREAD (Linux V4L2)              |
+|                   Sub-millisecond Tracking                     |
+|                                                                |
+|  1. Captura V4L2 MMAP (/dev/video0) a 320x240 @ 30 FPS         |
+|  2. Conversion YUYV -> RGB con espejo horizontal en 1 solo pase|
+|  3. Particion Horizontal:                                      |
+|       - Subframe Izquierdo -> Jugador 1 (Cyan)                 |
+|       - Subframe Derecho   -> Jugador 2 (Amber)                |
+|  4. Centroide YCbCr y compensacion biomecanica                 |
+|  5. Generacion de preview RGBA anotado con cajas delimitadoras |
++----------------------------------------------------------------+
 ```
 
 ---
 
-## 📐 Métricas de Estimación Cefálica
-
-Para minimizar la latencia y evitar la sobrecarga de resolver `solvePnP` completo en ARM Cortex-A72, se utiliza el ratio geométrico vertical entre puntos clave de la malla facial:
-
-$$\text{face\_height} = y_{\text{chin}} - y_{\text{forehead}}$$
-$$\text{pitch\_ratio} = \frac{y_{\text{nose}} - y_{\text{forehead}}}{\text{face\_height}}$$
-
-- **Puntos de referencia (MediaPipe Face Mesh):**
-  - Frente (nasión superior): `Landmark 10`
-  - Punta de la nariz: `Landmark 4`
-  - Mentón (borde inferior): `Landmark 152`
-- Valor neutral en reposo: $\approx 0.45$.
-- Desviación superior ($< 0.40$): Desplaza la paleta hacia arriba.
-- Desviación inferior ($> 0.50$): Desplaza la paleta hacia abajo.
-
----
-
-## ⚙️ Requisitos de Hardware y Software
+## Requisitos de Hardware y Software
 
 ### Hardware
-- **Raspberry Pi 4 Model B** (Recomendado 4GB o 8GB RAM).
-- Disipador activo o ventilador (para mantener temperatura < 65°C en inferencia sostenida).
-- 1× Cámara USB (Plug & Play UVC, resolución nativa 720p o 1080p).
-- Monitor o TV HDMI (1080p o 720p).
+- Raspberry Pi 4 Model B (Recomendado 2GB, 4GB o 8GB RAM).
+- Disipador activo o ventilador (temperatura estable < 60 C).
+- 1 Camara USB (UVC Plug & Play, soporte YUYV / MJPEG).
+- Monitor o TV HDMI (1280x720 o 1920x1080).
 
 ### Software
-- **Raspberry Pi OS (Bookworm) 64-bit** (`aarch64`).
-- **Python 3.11+** (incluido por defecto en Bookworm).
+- Raspberry Pi OS (Bookworm o Trixie) 64-bit (`aarch64`).
+- Rust 1.75+ y Cargo (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`).
+- Bibliotecas: `libgl1`, `libegl1`, `libasound2-dev`, `libv4l-dev`, `pkg-config`.
 
 ---
 
-## 🚀 Instalación y Puesta en Marcha
+## Instalacion y Puesta en Marcha (Rust)
 
 ### 1. Clonar el repositorio
 ```bash
@@ -91,70 +76,52 @@ git clone https://github.com/AndresRuzT/FacePong-Raspberry.git
 cd FacePong-Raspberry
 ```
 
-### 2. Configurar el entorno virtual
-En Raspberry Pi OS Bookworm los entornos virtuales son mandatorios según PEP 668:
+### 2. Ejecutar script automatizado para Raspberry Pi
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
+chmod +x scripts/setup_rpi.sh
+./scripts/setup_rpi.sh
 ```
 
-### 3. Instalar dependencias
+### 3. Compilacion manual en modo Release
 ```bash
-# Dependencias de ejecución:
-pip install -r requirements.txt
-
-# Para desarrollo y pruebas:
-pip install -r requirements-dev.txt
+cargo build --release
 ```
 
-*(Opcional) Instalación del paquete en modo editable:*
+### 4. Ejecucion del Juego
 ```bash
-pip install -e .
+./target/release/facepong
 ```
 
-### 4. Ejecución del Juego
+O directamente mediante cargo:
 ```bash
-# Ejecutar directamente:
-python3 -m facepong.main
-
-# O con archivo de configuración personalizado:
-python3 -m facepong.main --config config/default.toml
+cargo run --release
 ```
 
 ---
 
-## ⌨️ Controles de Teclado (Modo Fallback / Pruebas)
+## Controles
 
-| Acción | Jugador 1 (Izquierda) | Jugador 2 (Derecha) |
+| Accion | Jugador 1 (Izquierda) | Jugador 2 (Derecha) |
 |---|---|---|
-| Subir Paleta | `W` | `Flecha Arriba` |
-| Bajar Paleta | `S` | `Flecha Abajo` |
-| Pausar / Continuar | `Espacio` | `Espacio` |
+| Inclinacion Cabeza | Arriba / Abajo | Arriba / Abajo |
+| Control Manual Teclado | `W` (Arriba) / `S` (Abajo) | `Flecha Arriba` / `Flecha Abajo` |
+| Iniciar / Pausar / Continuar | `Espacio` | `Espacio` |
+| Recalibrar Centro Facial | `C` | `C` |
 | Reiniciar Partida | `R` | `R` |
-| Alternar Overlay Cámara | `C` | `C` |
 | Salir del Juego | `Escape` | `Escape` |
 
 ---
 
-## 🧪 Pruebas Unitarias y Calidad de Código
+## Pruebas Unitarias
 
-El repositorio cuenta con suite automatizada de pruebas y comprobación estática:
+Para ejecutar el conjunto de pruebas unitarias del motor:
 
 ```bash
-# Ejecutar pruebas con reporte de cobertura:
-pytest
-
-# Comprobar formato y convenciones (Ruff):
-ruff check .
-ruff format --check .
-
-# Verificación de tipos estáticos (Mypy):
-mypy src/
+cargo test
 ```
 
 ---
 
-## 📄 Licencia
+## Licencia
 
-Este proyecto está bajo la Licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+Este proyecto esta bajo la Licencia MIT. Consulta el archivo LICENSE para mas detalles.
