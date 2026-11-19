@@ -1,5 +1,5 @@
-# Runtime dependencies for FacePong
-# Pinning guarantees rock-solid execution on Raspberry Pi OS Bookworm (64-bit / aarch64)
+# Dependencias del motor de referencia en Python para FacePong
+# Este entorno complementa al motor nativo en Rust para simulacion y pruebas
 pygame-ce>=2.5.0
 opencv-python-headless>=4.9.0
 mediapipe>=0.10.9

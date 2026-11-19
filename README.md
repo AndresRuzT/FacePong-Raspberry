@@ -1,127 +1,143 @@
-# FacePong — Raspberry Pi 4 Computer Vision Pong
+# FacePong: Pong Interactivo por Visión Artificial en Raspberry Pi 4
 
 [![CI Pipeline](https://github.com/AndresRuzT/FacePong-Raspberry/actions/workflows/ci.yml/badge.svg)](https://github.com/AndresRuzT/FacePong-Raspberry/actions/workflows/ci.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)](https://www.rust-lang.org/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-FacePong es un sistema interactivo multijugador en tiempo real que traslada el clásico juego arcade Pong a una interfaz humano-computador (HCI) basada en visión artificial y estimación de movimiento cefálico.
+FacePong transforma el legendario juego arcade Pong en una experiencia interactiva sin contacto físico. Mediante visión artificial y estimación de inclinación cefálica en tiempo real, dos participantes compiten frente a una única cámara web conectada a una computadora de placa reducida.
 
-Diseñado y optimizado específicamente para hardware embebido Raspberry Pi 4 Model B (Quad-Core ARM Cortex-A72 @ 1.8GHz, aarch64) para entornos de investigación y demostración académica.
+El proyecto está concebido y optimizado para la Raspberry Pi 4 Model B, combinando alta fluidez visual, baja latencia y un consumo sumamente eficiente de energía.
 
----
+Para brindar la mayor flexibilidad tanto a la comunidad académica como a desarrolladores de software, este repositorio cuenta con dos implementaciones complementarias:
 
-## Caracteristicas Principales
+1. Motor Nativo en Rust: La opción principal de alto rendimiento, diseñada con Macroquad y acceso directo al controlador V4L2 del núcleo Linux para aprovechar al máximo la aceleración gráfica por hardware.
+2. Motor de Referencia en Python: Una alternativa orientada a investigación, simulación en computadoras personales y experimentación rápida mediante Pygame y MediaPipe.
 
-- Motor Nativo en Rust: Reimplementado completamente en Rust con Macroquad (aceleracion GLES 2.0 por hardware) y streaming V4L2 zero-copy desde el kernel Linux.
-- Control Contactless (Sin Mandos): El desplazamiento vertical de la pala responde al cabeceo e inclinacion facial de cada participante.
-- Multijugador en Camara Unica: Particion horizontal automatica con espejo que procesa a ambos jugadores simultaneamente en un unico sensor USB.
-- Segmentacion de Color y Centroide Sub-milisegundo: Deteccion crominante de piel en espacio YCbCr optimizada en punto fijo que se ejecuta a mas de 100 FPS en CPUs ARM Cortex-A72.
-- Compensacion Biomecanica: Multiplicador diferencial para la inclinacion superior (1.65x) que compensa la restriccion anatomica del cuello humano y el escorzo perspectivo 2D, permitiendo alcanzar los extremos superior e inferior con minimo esfuerzo.
-- Filtro EMA Adaptativo: Suavizado exponencial dinamico con incremento de alfa segun velocidad de movimiento para eliminar temblores en reposo y respuesta inmediata en gestos rapidos.
-- Diseno Framed Dashboard: Panel superior exterior desacoplado del campo de juego que aloja visualizador en vivo, telemetria y estado de conexion sin obstruir la cancha.
-- Modo Fallback / Teclado: Deteccion automatica y soporte de control por teclado para entornos sin camara o depuracion.
+Para conocer instrucciones paso a paso sobre cómo jugar, calibrar la cámara y solucionar dudas habituales, te invitamos a consultar la [Guía de Usuario en Inglés](file:///home/andres/Documents/OwnProjects/FacePong-Raspberry/USER_GUIDE.md).
 
----
+## Aspectos Destacados del Proyecto
 
-## Arquitectura del Motor Rust
+1. Motor Nativo de Alto Rendimiento: Desarrollado en Rust con Macroquad para renderizado fluido a más de 60 fotogramas por segundo mediante GLES 2.0 y captura de video sin copias innecesarias en memoria.
+2. Control Gestual sin Contacto: Cada jugador desplaza su paleta verticalmente con el cabeceo e inclinación natural de su rostro, sin necesidad de sujetar mandos o periféricos adicionales.
+3. Partición Inteligente de Cámara: El software divide el flujo de una única cámara USB en dos mitades horizontales con efecto espejo, permitiendo que ambos jugadores compartan el mismo sensor.
+4. Seguimiento Submilisegundo: Detección de tono de piel en espacio de color YCbCr y cálculo de centroide en punto fijo, optimizado para procesadores ARM Cortex A72.
+5. Compensación Biomecánica: Aplica una ganancia vertical diferenciada que equilibra la movilidad natural del cuello humano, permitiendo alcanzar las esquinas del campo de juego con comodidad.
+6. Filtro Adaptativo de Señal: Suavizado exponencial dinámico que suprime temblores involuntarios cuando el usuario está quieto y responde de inmediato ante movimientos rápidos.
+7. Tablero Desacoplado: Panel superior independiente que muestra la transmisión de video, el estado de detección y los marcadores sin interferir en la cancha de juego.
+8. Modo Manual de Respaldo: Permite alternar a controles de teclado en cualquier momento para labores de depuración o juego en equipos que no dispongan de cámara.
 
-```text
-+----------------------------------------------------------------+
-|                   MAIN THREAD (Macroquad GLES)                |
-|                    60+ FPS Hardware Rendering                  |
-|                                                                |
-|  [Input & Keyboard] --> [Game State] --> [Continuous Lerp]     |
-|                              |                                 |
-|                              v                                 |
-|                     [Framed Scene Renderer]                    |
-|             (Dashboard Bezel + Unobstructed Court)             |
-+------------------------------^---------------------------------+
-                               | Zero-latency Crossbeam Channel
-+------------------------------+---------------------------------+
-|                 VISION WORKER THREAD (Linux V4L2)              |
-|                   Sub-millisecond Tracking                     |
-|                                                                |
-|  1. Captura V4L2 MMAP (/dev/video0) a 320x240 @ 30 FPS         |
-|  2. Conversion YUYV -> RGB con espejo horizontal en 1 solo pase|
-|  3. Particion Horizontal:                                      |
-|       - Subframe Izquierdo -> Jugador 1 (Cyan)                 |
-|       - Subframe Derecho   -> Jugador 2 (Amber)                |
-|  4. Centroide YCbCr y compensacion biomecanica                 |
-|  5. Generacion de preview RGBA anotado con cajas delimitadoras |
-+----------------------------------------------------------------+
+## Arquitectura del Sistema
+
+El siguiente diagrama ilustra cómo se coordinan los hilos de procesamiento visual y renderizado gráfico dentro del motor nativo:
+
+```mermaid
+flowchart TD
+    subgraph HiloPrincipal ["Hilo Principal con Macroquad GLES"]
+        Entrada["Entrada de Teclado y Control"] --> Estado["Logica y Estado de Juego"]
+        Estado --> Interpolacion["Interpolacion Continua de Paletas"]
+        Interpolacion --> Renderizado["Renderizado con Marco Exterior y Tablero"]
+    end
+
+    subgraph HiloVision ["Hilo de Vision con Linux V4L2"]
+        Captura["Captura Directa V4L2 en Memoria"] --> Conversion["Conversion de Formato YUYV a RGB con Espejo"]
+        Conversion --> Particion["Division de Pantalla para Jugador 1 y Jugador 2"]
+        Particion --> Deteccion["Deteccion de Tono de Piel y Centroide"]
+        Deteccion --> Filtro["Compensacion Biomecanica y Filtro Dinamico"]
+    end
+
+    Filtro -->|"Canal Crossbeam sin Bloqueos"| Estado
 ```
 
----
+## Requisitos del Sistema
 
-## Requisitos de Hardware y Software
+### Plataforma de Hardware
+1. Raspberry Pi 4 Model B con 2 GB, 4 GB o 8 GB de memoria RAM.
+2. Disipador de calor activo o ventilador para mantener una temperatura óptima de operación.
+3. Cámara web USB compatible con el estándar UVC y formato YUYV o MJPEG.
+4. Monitor o televisor con conexión HDMI y resolución sugerida de 1280 por 720 píxeles.
 
-### Hardware
-- Raspberry Pi 4 Model B (Recomendado 2GB, 4GB o 8GB RAM).
-- Disipador activo o ventilador (temperatura estable < 60 C).
-- 1 Camara USB (UVC Plug & Play, soporte YUYV / MJPEG).
-- Monitor o TV HDMI (1280x720 o 1920x1080).
+### Entorno de Software
+1. Sistema operativo Raspberry Pi OS Bookworm o Trixie de 64 bits.
+2. Compilador de Rust versión 1.75 o superior junto con Cargo.
+3. Python versión 3.11 o superior para ejecutar el motor de referencia o las pruebas de calidad.
+4. Paquetes del sistema: libgl1, libegl1, libasound2-dev, libv4l-dev y pkg-config.
 
-### Software
-- Raspberry Pi OS (Bookworm o Trixie) 64-bit (`aarch64`).
-- Rust 1.75+ y Cargo (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`).
-- Bibliotecas: `libgl1`, `libegl1`, `libasound2-dev`, `libv4l-dev`, `pkg-config`.
+## Instalación y Puesta en Marcha
 
----
+### Opción 1: Compilación y Ejecución del Motor Nativo en Rust
 
-## Instalacion y Puesta en Marcha (Rust)
+Esta es la alternativa recomendada para disfrutar la máxima velocidad en Raspberry Pi:
 
-### 1. Clonar el repositorio
+1. Clonar este repositorio en tu equipo:
 ```bash
 git clone https://github.com/AndresRuzT/FacePong-Raspberry.git
 cd FacePong-Raspberry
 ```
 
-### 2. Ejecutar script automatizado para Raspberry Pi
+2. Preparar el sistema e instalar dependencias con el script automatizado:
 ```bash
 chmod +x scripts/setup_rpi.sh
 ./scripts/setup_rpi.sh
 ```
 
-### 3. Compilacion manual en modo Release
+3. Compilar el binario optimizado:
 ```bash
 cargo build --release
 ```
 
-### 4. Ejecucion del Juego
-```bash
-./target/release/facepong
-```
-
-O directamente mediante cargo:
+4. Iniciar el juego:
 ```bash
 cargo run --release
 ```
 
----
+### Opción 2: Ejecución del Motor de Referencia en Python
 
-## Controles
+Si deseas ejecutar FacePong en tu estación de trabajo para labores de investigación o diseño de algoritmos:
 
-| Accion | Jugador 1 (Izquierda) | Jugador 2 (Derecha) |
-|---|---|---|
-| Inclinacion Cabeza | Arriba / Abajo | Arriba / Abajo |
-| Control Manual Teclado | `W` (Arriba) / `S` (Abajo) | `Flecha Arriba` / `Flecha Abajo` |
-| Iniciar / Pausar / Continuar | `Espacio` | `Espacio` |
-| Recalibrar Centro Facial | `C` | `C` |
-| Reiniciar Partida | `R` | `R` |
-| Salir del Juego | `Escape` | `Escape` |
+1. Crear y activar un entorno virtual:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
----
+2. Instalar las librerías indicadas en el archivo de requerimientos:
+```bash
+pip install -r requirements.txt
+```
 
-## Pruebas Unitarias
+3. Iniciar la aplicación:
+```bash
+python -m facepong.main
+```
 
-Para ejecutar el conjunto de pruebas unitarias del motor:
+## Controles del Juego
 
+| Acción | Jugador 1 (Izquierda) | Jugador 2 (Derecha) |
+| :--- | :--- | :--- |
+| Control por Visión | Inclinar la cabeza arriba o abajo | Inclinar la cabeza arriba o abajo |
+| Control por Teclado | Teclas W y S | Flechas Arriba y Abajo |
+| Iniciar o Pausar | Barra Espaciadora | Barra Espaciadora |
+| Recalibrar Centro Facial | Tecla C | Tecla C |
+| Reiniciar Marcador | Tecla R | Tecla R |
+| Salir de la Aplicación | Tecla Escape | Tecla Escape |
+
+## Pruebas Automatizadas
+
+El proyecto mantiene altos estándares de calidad con pruebas tanto para el código en Rust como para los módulos en Python.
+
+1. Para ejecutar las pruebas unitarias del motor en Rust:
 ```bash
 cargo test
 ```
 
----
+2. Para ejecutar las pruebas de cobertura y análisis estático en Python:
+```bash
+pytest
+```
 
-## Licencia
+## Documentación Adicional y Licencia
 
-Este proyecto esta bajo la Licencia MIT. Consulta el archivo LICENSE para mas detalles.
+Para consultar instrucciones completas de uso pensadas para cualquier usuario o jugador, lee nuestro documento [USER_GUIDE.md](file:///home/andres/Documents/OwnProjects/FacePong-Raspberry/USER_GUIDE.md).
+
+Este proyecto es código abierto y está disponible bajo los términos de la Licencia MIT. Para mayores detalles, consulta el archivo [LICENSE](file:///home/andres/Documents/OwnProjects/FacePong-Raspberry/LICENSE).
