@@ -1,4 +1,4 @@
-# FacePong: Real Time Vision Controlled Pong on Raspberry Pi 4
+# FacePong: Real Time Vision Controlled Pong on Raspberry Pi 4 (In development).
 
 [![CI Pipeline](https://github.com/AndresRuzT/FacePong-Raspberry/actions/workflows/ci.yml/badge.svg)](https://github.com/AndresRuzT/FacePong-Raspberry/actions/workflows/ci.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)](https://www.rust-lang.org/)
