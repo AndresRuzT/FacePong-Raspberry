@@ -1,5 +1,5 @@
-# Dependencias del motor de referencia en Python para FacePong
-# Este entorno complementa al motor nativo en Rust para simulacion y pruebas
+# Python reference engine dependencies for FacePong
+# This environment complements the native Rust engine for simulation and testing
 pygame-ce>=2.5.0
 opencv-python-headless>=4.9.0
 mediapipe>=0.10.9
